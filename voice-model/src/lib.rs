@@ -16,6 +16,8 @@ pub use num_traits::FromPrimitive;
 
 pub use self::close_code::CloseCode;
 pub use self::event::Event;
+pub use self::event::BinaryEvent;
+pub use self::event::JsonEvent;
 pub use self::opcode::Opcode;
 pub use self::protocol_data::ProtocolData;
 pub use self::speaking_state::SpeakingState;

@@ -66,3 +66,31 @@ impl From<ClientDisconnect> for Event {
         Event::ClientDisconnect(i)
     }
 }
+
+impl From<DaveExecuteTransition> for Event{
+    fn from(i: DaveExecuteTransition) -> Self {
+        Event::DaveExecuteTransition(i)
+    }
+}
+
+impl From<DaveMlsInvalidCommitWelcome> for Event{
+    fn from(i: DaveMlsInvalidCommitWelcome) -> Self {
+        Event::DaveMlsInvalidCommitWelcome(i)
+    }
+}
+
+impl From<DavePrepareEpoch> for Event{
+    fn from(i: DavePrepareEpoch) -> Self {
+        Event::DavePrepareEpoch(i)
+    }
+}
+impl From<DavePrepareTransition> for Event{
+    fn from(i: DavePrepareTransition) -> Self {
+        Event::DavePrepareTransition(i)
+    }
+}
+impl From<DaveTransitionReady> for Event{
+    fn from(i: DaveTransitionReady) -> Self {
+        Event::DaveTransitionReady(i)
+    }
+}

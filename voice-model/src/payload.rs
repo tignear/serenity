@@ -1,8 +1,10 @@
 //! Message bodies used in gateway event-handling.
-
-use std::net::IpAddr;
-
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
+use tls_codec::{
+    Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait, Size as TlsSizeTrait,
+    TlsDeserialize, TlsSerialize, TlsSize, TlsVecU8, VLBytes,
+};
 
 use crate::id::*;
 use crate::protocol_data::ProtocolData;
@@ -28,6 +30,137 @@ pub struct ClientConnect {
 pub struct ClientDisconnect {
     /// Id of the disconnected user.
     pub user_id: UserId,
+}
+/// Includes the transition ID and protocol version for the transition.
+/// The protocol only uses this opcode to indicate when a downgrade to protocol version 0 is upcoming.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub struct DavePrepareTransition {
+    /// should be 0
+    pub protocol_version: u32,
+    pub transition_id: u32,
+}
+/// Includes the previously announced transition ID to execute.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub struct DaveExecuteTransition {
+    pub transition_id: u32,
+}
+
+/// Includes the previously announced transition ID that the client is ready to execute.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub struct DaveTransitionReady {
+    pub transition_id: u16,
+}
+
+/// Includes the epoch ID and protocol version for the upcoming epoch.
+/// It is sent from the server to clients to announce upcoming protocol version changes.
+/// When the epoch ID is equal to 1, this message indicates that a new MLS group is to be created for the given protocol version.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub struct DavePrepareEpoch {
+    pub protocol_version: u32,
+    pub epoch: u32,
+}
+
+/// Includes the transition ID in which the invalid Commit or Welcome was received.
+/// This message asks the voice gateway to remove and re-add a member to an MLS group so the member can recover from receiving an unprocessable Commit or Welcome.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub struct DaveMlsInvalidCommitWelcome {
+    pub transition_id: u32,
+}
+
+/**
+ * Binary Messages
+ */
+pub type SignaturePublicKey = VLBytes;
+
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+#[repr(u16)]
+pub enum Credential {
+    #[tls_codec(discriminant = 1)]
+    Basic(VLBytes) = 1,
+}
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct ExternalSender {
+    pub signature_key: SignaturePublicKey,
+    pub credential: Credential,
+}
+
+
+
+
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+#[repr(u16)]
+pub enum ProtocolVersion {
+    Mls10 = 1,
+}
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+#[repr(u16)]
+pub enum Ciphersuite {
+    Dhkemp256Aes128gcmSha256P256=2,
+}
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct Extension {
+    extension_type: u16,
+    extension_data: VLBytes,
+}
+type ExtensionType = u16;
+
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+#[repr(u16)]
+pub enum ProposalType {
+    Add = 0x0001,
+    Remove = 0x0003,
+}
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+#[repr(u16)]
+pub enum CredentialType {
+    Basic = 1,
+}
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct Capabilities {
+    pub versions: Vec<ProtocolVersion>,
+    pub cipher_suites: Vec<Ciphersuite>,
+    pub extensions: Vec<ExtensionType>,
+    pub proposals: Vec<ProposalType>,
+    pub credentials: Vec<CredentialType>,
+}
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct LifeTime {
+    not_before: u64,
+    not_after: u64,
+}
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+#[repr(u8)]
+pub enum LeafNodeSource {
+    #[tls_codec(discriminant = 1)]
+    KeyPackage(LifeTime),
+    #[tls_codec(discriminant = 2)]
+    Update = 2,
+    #[tls_codec(discriminant = 3)]
+    Commit(VLBytes),
+}
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct LeafNode {
+    pub encryption_key: VLBytes,
+    pub signature_key: VLBytes,
+    pub credential: Credential,
+    pub capabilities: Capabilities,
+    pub leaf_node_source: LeafNodeSource,
+    pub extensions: Vec<Extension>,
+    pub signature: VLBytes,
+}
+
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct KeyPackage {
+    pub version: ProtocolVersion,
+    pub cipher_suite: Ciphersuite,
+    pub init_key: VLBytes,
+    pub leaf_node: LeafNode,
+    pub extensions: Vec<Extension>,
+    pub signature: VLBytes,
+}
+#[derive(Clone, Debug, PartialEq, TlsDeserialize, TlsSerialize, TlsSize)]
+pub struct DaveMlsKeyPackage {
+    pub key_package: KeyPackage,
 }
 
 /// Used to keep the websocket connection alive.
@@ -67,6 +200,8 @@ pub struct Identify {
     pub token: String,
     /// UserId of the client who is connecting.
     pub user_id: UserId,
+    // The version of DAVE that the client supports. 0 is not supported.
+    pub max_dave_protocol_version: u32,
 }
 
 /// RTP server's connection offer and supported encryption modes.
@@ -113,6 +248,8 @@ pub struct SessionDescription {
     pub mode: String,
     /// Key used for encryption of RTP payloads using the chosen mode.
     pub secret_key: Vec<u8>,
+    /// The version of DAVE. 0 means not to use DAVE.
+    pub dave_protocol_version: u32,
 }
 
 /// Used to indicate which users are speaking, or to inform Discord that the client is now

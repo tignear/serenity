@@ -16,6 +16,7 @@ edition = "2018"
 bitflags = "2.4"
 num-traits = "0.2"
 serde_repr = "0.1.5"
+tls_codec = {version = "0.4.1" , features = ["derive"]}
 
 [dependencies.serde]
 version = "1"

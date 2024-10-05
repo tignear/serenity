@@ -16,7 +16,8 @@ fn deserialize_identify_json() {
         "server_id": "41771983423143937",
         "user_id": "104694319306248192",
         "session_id": "my_session_id",
-        "token": "my_token"
+        "token": "my_token",
+        "max_dave_protocol_version": 0,
       },
       "op": 0
     }"#;
@@ -28,6 +29,7 @@ fn deserialize_identify_json() {
         token: "my_token".into(),
         server_id: GuildId(41771983423143937),
         user_id: UserId(104694319306248192),
+        max_dave_protocol_version: 0
     };
 
     assert!(matches!(event, Ok(Event::Identify(i)) if i == ident));
@@ -268,6 +270,7 @@ fn serialize_identify() {
         session_id: "56f88a86dce65c65b9".into(),
         token: "56f88a86dce65c65b8".into(),
         user_id: UserId(2),
+        max_dave_protocol_version: 0
     }
     .into();
 
